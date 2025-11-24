@@ -1,0 +1,7 @@
+{
+  "name": "Tracker Field Force",
+  "description": "Hybrid architecture app: Local Storage for Login, Supabase for Data Persistence.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

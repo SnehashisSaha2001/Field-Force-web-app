@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Tracker Field Force</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0e2a47',
+                        accent: '#00d4ff',
+                        darkbg: '#0f2027',
+                        cardbg: '#1e2e3e',
+                        inputbg: '#324a5f',
+                        success: '#28a745',
+                        danger: '#f44336'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    backgroundImage: {
+                        'main-gradient': 'linear-gradient(to bottom right, #0f2027, #203a43, #2c5364)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        body {
+            background: linear-gradient(to bottom right, #0f2027, #203a43, #2c5364);
+            color: #f1f1f1;
+            height: 100vh;
+            overflow: hidden;
+        }
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e2e3e; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #324a5f; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00d4ff; 
+        }
+        .leaflet-container {
+            width: 100%;
+            height: 100%;
+            border-radius: 0.5rem;
+            z-index: 0;
+        }
+        /* Table Styling overrides */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #2b3d50;
+        }
+        th, td {
+            border: 1px solid #00d4ff;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background: #324a5f;
+            color: #f1f1f1;
+        }
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active{
+            -webkit-box-shadow: 0 0 0 30px #324a5f inset !important;
+            -webkit-text-fill-color: white !important;
+        }
+        /* Form Input Styling to match prototype */
+        .proto-input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: none;
+            background: #324a5f;
+            color: #fff;
+            outline: none;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #00d4ff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <script>
+      // Suppress Babel warning
+      console.warn = (function(warn) {
+        return function(message, ...args) {
+          if (typeof message === 'string' && message.includes('In-browser Babel transformer')) return;
+          warn.apply(console, [message, ...args]);
+        };
+      })(console.warn);
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- Supabase Configuration ---
+        const SUPABASE_URL = 'https://qqgmqskvjmmdhxeccnip.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ21xc2t2am1tZGh4ZWNjbmlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxOTYyMzYsImV4cCI6MjA3NTc3MjIzNn0.nv2e6zq4VtxYRVrC1BUW1_omGWzsmcXcHoNploqBwX4';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // --- Initial Data for Seeding ---
+        const INITIAL_ADMINS = [
+            { user_id: "ADM-S.S SINGH", name: "Shanti Saran Singh", mobile_no: "9831038262", password: "scube@1234", role: 'admin' },
+            { user_id: "ADM-SANDEEP", name: "Sandeep Sarkar", mobile_no: "9831036858", password: "scube@1234", role: 'admin' },
+            { user_id: "ADM-SNEHASHIS", name: "Snehashis Saha", mobile_no: "9330199588", password: "scube@1234", role: 'admin' },
+            { user_id: "ADM-KOMAL", name: "Komal Gupta", mobile_no: "7003045682", password: "scube@1234", role: 'admin' },
+            { user_id: "ADM-SHOAIB", name: "MD Shoaib Raza", mobile_no: "9831259095", password: "scube@1234", role: 'admin' },
+            { user_id: "ADM-ADMIN", name: "System Admin", mobile_no: "9999999999", password: "scube@1234", role: 'admin' }
+        ];
+
+        const INITIAL_EMPLOYEES = [
+            { name: "Snehasish Paul", user_id: "SCS-03318", mobile_no: "8017892062", password: "scube@4321", role: 'employee' },
+            { name: "Zuber Alam", user_id: "SCS-01102", mobile_no: "9891377424", password: "scube@4321", role: 'employee' },
+            { name: "Bharath Kumar TM", user_id: "SCS-08017", mobile_no: "9844722312", password: "scube@4321", role: 'employee' },
+            { name: "Shiva Kumarar", user_id: "SCS-08016", mobile_no: "9611452782", password: "scube@4321", role: 'employee' },
+            { name: "Tapas Kumar Dinda", user_id: "SCS-03317", mobile_no: "9804443387", password: "scube@4321", role: 'employee' },
+            { name: "Gopal Chandra Biswas", user_id: "SCS-03313", mobile_no: "9432095612", password: "scube@4321", role: 'employee' },
+            { name: "Saugat Majumdar", user_id: "SCS-03303", mobile_no: "9831259094", password: "scube@4321", role: 'employee' },
+            { name: "Chitrarath Senapati", user_id: "SCS-03306", mobile_no: "9831282190", password: "scube@4321", role: 'employee' },
+            { name: "Sukhendu Shekhar Mondal", user_id: "SCS-03316", mobile_no: "7278942388", password: "scube@4321", role: 'employee' },
+            { name: "Tarun Kumar Paramanik", user_id: "SCS-03308", mobile_no: "9831650969", password: "scube@4321", role: 'employee' },
+            { name: "Kartik Ghanta", user_id: "SCS-03309", mobile_no: "7074099074", password: "scube@4321", role: 'employee' },
+            { name: "Provat Naskar", user_id: "SCS-03314", mobile_no: "7044486602", password: "scube@4321", role: 'employee' },
+            { name: "Ravi", user_id: "SCS-01103", mobile_no: "9548362042", password: "scube@4321", role: 'employee' },
+            { name: "Abhilash Sarangi", user_id: "SCS-067403", mobile_no: "8763523636", password: "scube@4321", role: 'employee' },
+            { name: "Shubhadarshani Nath", user_id: "SCS-067404", mobile_no: "7978143152", password: "scube@4321", role: 'employee' }
+        ];
+
+        // --- Utility Functions ---
+        const generateId = (prefix) => `${prefix}-${Date.now().toString(36).toUpperCase()}`;
+        
+        // Helper to ensure user exists in Supabase (Fixes FK Errors)
+        const ensureSupabaseUser = async (user) => {
+            if (!user || !user.user_id) return;
+            // Attempt Upsert
+            const { error } = await supabase.from('users').upsert({
+                user_id: user.user_id,
+                name: user.name,
+                email: user.email || null,
+                mobile_no: user.mobile_no,
+                role: user.role,
+                password: user.password,
+                is_online: true,
+                updated_at: new Date().toISOString()
+            });
+            if (error) console.error("Self-heal user failed:", error);
+        };
+
+        // --- Local Storage User Management Helpers ---
+        const getLocalUsers = () => {
+            try {
+                const stored = localStorage.getItem('tracker_users');
+                if (stored) return JSON.parse(stored);
+            } catch (e) {
+                console.error("Error reading local storage users", e);
+            }
+            // Seed if empty
+            const defaults = [...INITIAL_ADMINS, ...INITIAL_EMPLOYEES];
+            localStorage.setItem('tracker_users', JSON.stringify(defaults));
+            return defaults;
+        };
+
+        const updateLocalUserInStorage = (updatedUser) => {
+            const users = getLocalUsers();
+            const index = users.findIndex(u => u.user_id === updatedUser.user_id);
+            if (index !== -1) {
+                users[index] = { ...users[index], ...updatedUser };
+                localStorage.setItem('tracker_users', JSON.stringify(users));
+            }
+        };
+
+        const addLocalUserToStorage = (newUser) => {
+            const users = getLocalUsers();
+            if (!users.find(u => u.user_id === newUser.user_id)) {
+                users.push(newUser);
+                localStorage.setItem('tracker_users', JSON.stringify(users));
+            }
+        };
+
+        const removeLocalUserFromStorage = (userId) => {
+            const users = getLocalUsers().filter(u => u.user_id !== userId);
+            localStorage.setItem('tracker_users', JSON.stringify(users));
+        };
+
+        const handleSupabaseError = (err) => {
+            console.error("Supabase Error Full Object:", err);
+            
+            // Handle Missing Table
+            if (err?.code === 'PGRST205' || (err?.message && err.message.includes('Could not find the table'))) {
+                alert("DATABASE SETUP REQUIRED\n\nThe database tables do not exist. Please follow these steps:\n\n1. Copy the SQL code from README.md\n2. Go to Supabase Dashboard -> SQL Editor\n3. Paste and Run the script to create tables.");
+                return;
+            }
+            
+            // Handle RLS Block
+            if (err?.code === '42501' || (err?.message && err.message.includes('row-level security policy'))) {
+                alert("ACCESS DENIED (RLS Enabled)\n\nSupabase is blocking the write request because Row Level Security is ON.\n\nThis app uses direct DB access. Please go to Supabase -> SQL Editor and run:\n\nALTER TABLE users DISABLE ROW LEVEL SECURITY;\nALTER TABLE daily_activity DISABLE ROW LEVEL SECURITY;\nALTER TABLE followups DISABLE ROW LEVEL SECURITY;");
+                return;
+            }
+
+            let msg = "Unknown error occurred";
+            
+            if (typeof err === 'string') {
+                msg = err;
+            } else if (err?.message) {
+                 msg = typeof err.message === 'string' ? err.message : JSON.stringify(err.message);
+            } else if (err?.error_description) {
+                msg = err.error_description;
+            } else if (err) {
+                try {
+                    msg = JSON.stringify(err, null, 2);
+                } catch (e) {
+                    msg = "Error object could not be stringified";
+                }
+            }
+            
+            alert(`Operation Failed:\n${msg}`);
+        };
+
+        const exportToCSV = (data, filename) => {
+            if (!data || !data.length) return alert('No data to export');
+            const headers = Object.keys(data[0]);
+            const csvContent = [
+                headers.join(','),
+                ...data.map(row => headers.map(header => {
+                    let val = row[header] === null || row[header] === undefined ? '' : row[header];
+                    val = String(val).replace(/"/g, '""');
+                    if (val.includes(',')) val = `"${val}"`;
+                    return val;
+                }).join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        // --- Icons ---
+        const Icons = {
+            Dashboard: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>,
+            Activity: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>,
+            FollowUp: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>,
+            Profile: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>,
+            Users: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>,
+            Admin: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>,
+            Logout: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>,
+            Menu: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>,
+            Close: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>,
+            Check: () => <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>,
+            Error: () => <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        };
+
+        // --- Shared Modal Component ---
+        const Modal = ({ isOpen, onClose, title, children }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 p-4 backdrop-blur-sm">
+                    <div className="bg-cardbg rounded-lg shadow-2xl w-full max-w-md relative flex flex-col max-h-[90vh] border border-accent">
+                        <div className="flex justify-between items-center p-4 border-b border-gray-700">
+                            <h3 className="text-xl font-bold text-white">{title}</h3>
+                            <button onClick={onClose} className="text-gray-400 hover:text-white">
+                                <Icons.Close />
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto custom-scrollbar">
+                            {children}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Map Component ---
+        const MapComponent = ({ lat, lng }) => {
+            const mapRef = useRef(null);
+            const mapInstanceRef = useRef(null);
+            const markerRef = useRef(null);
+
+            useEffect(() => {
+                if (!mapRef.current) return;
+                
+                if (mapInstanceRef.current) {
+                    mapInstanceRef.current.remove();
+                    mapInstanceRef.current = null;
+                }
+
+                const latitude = lat || 0;
+                const longitude = lng || 0;
+
+                mapInstanceRef.current = L.map(mapRef.current).setView([latitude, longitude], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(mapInstanceRef.current);
+                
+                if (lat && lng) {
+                    markerRef.current = L.marker([latitude, longitude]).addTo(mapInstanceRef.current);
+                }
+
+                setTimeout(() => mapInstanceRef.current.invalidateSize(), 100);
+
+                return () => {
+                    if (mapInstanceRef.current) {
+                        mapInstanceRef.current.remove();
+                        mapInstanceRef.current = null;
+                    }
+                };
+            }, [lat, lng]);
+
+            return <div ref={mapRef} className="h-full w-full rounded border border-accent z-0 relative"></div>;
+        };
+
+        // --- Login Component ---
+        const LoginScreen = ({ onLogin }) => {
+            const [form, setForm] = useState({ role: '', id: '', password: '', mobile: '' });
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setError('');
+                setLoading(true);
+                try {
+                    if (!form.role) throw new Error('Please select a role');
+                    if (!form.id) throw new Error('ID is required');
+                    
+                    if (form.role === 'employee' && !form.id.startsWith('SCS-')) throw new Error('Employee ID must start with SCS-');
+                    if (form.role === 'admin' && !form.id.startsWith('ADM-')) throw new Error('Admin ID must start with ADM-');
+
+                    // --- LOCAL HOST LOGIN START ---
+                    // Retrieve users from Local Storage (Client-side Auth)
+                    const localUsers = getLocalUsers();
+                    
+                    const normalizedId = form.id.trim().toUpperCase();
+                    const user = localUsers.find(u => u.user_id === normalizedId && u.role === form.role);
+
+                    if (!user) throw new Error('User not found. Check ID and Role (Local Auth).');
+                    if (user.password !== form.password) throw new Error('Incorrect password.');
+                    if (user.mobile_no !== form.mobile) throw new Error('Incorrect mobile number.');
+
+                    // --- CRITICAL FIX: SYNC USER TO SUPABASE ---
+                    // This ensures the user exists in the DB 'users' table to satisfy Foreign Key constraints
+                    // when inserting into 'daily_activity'.
+                    try {
+                       await ensureSupabaseUser(user);
+                    } catch (syncErr) {
+                        console.warn("Background Sync Failed:", syncErr);
+                    }
+
+                    // Simulate slight delay for UX
+                    await new Promise(resolve => setTimeout(resolve, 300));
+
+                    onLogin(user);
+                    // --- LOCAL HOST LOGIN END ---
+
+                } catch (err) {
+                    setError(err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="flex h-screen overflow-hidden">
+                    <aside className="hidden md:flex w-64 bg-primary flex-col items-center p-6 border-r border-gray-700">
+                        <h1 className="text-2xl font-bold text-accent mb-10 flex items-center gap-2">
+                            🚀 Tracker
+                        </h1>
+                        <div className="relative w-24 h-24 rounded-full border-2 border-accent flex items-center justify-center mb-2">
+                            <span className="text-center text-xs text-white">Profile<br/>Photo</span>
+                        </div>
+                        <div className="text-center mb-8">
+                            <p className="text-white font-semibold">Employee Name</p>
+                            <p className="text-gray-400 text-sm">EMP-ID</p>
+                        </div>
+                        <div className="w-full mt-auto mb-auto">
+                            <button className="w-full bg-accent text-black font-bold py-3 rounded-lg shadow-lg mb-4">
+                                Login
+                            </button>
+                        </div>
+                    </aside>
+
+                    <main className="flex-1 bg-main-gradient p-8 md:p-16 overflow-y-auto flex flex-col justify-center">
+                        <div className="w-full max-w-3xl mx-auto">
+                            <h2 className="text-3xl font-bold text-white mb-8">Login</h2>
+                            {error && <div className="bg-red-500/20 border border-red-500 text-red-200 p-3 rounded mb-4 text-sm text-center font-semibold">{error}</div>}
+                            
+                            <form onSubmit={handleSubmit} className="space-y-6">
+                                <div className="form-group">
+                                    <label className="block text-white font-bold mb-2">
+                                        {form.role === 'admin' ? 'Admin Username' : 'Employee ID'}
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        placeholder={form.role === 'admin' ? 'Enter Admin Username (e.g., ADM-Name)' : 'Enter your Employee ID'}
+                                        className="proto-input focus:ring-2 focus:ring-accent"
+                                        value={form.id}
+                                        onChange={e => setForm({...form, id: e.target.value})}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="block text-white font-bold mb-2">Mobile Number</label>
+                                    <input 
+                                        type="tel" 
+                                        placeholder="Enter your mobile number"
+                                        className="proto-input focus:ring-2 focus:ring-accent"
+                                        value={form.mobile}
+                                        onChange={e => setForm({...form, mobile: e.target.value})}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="block text-white font-bold mb-2">Select Role</label>
+                                    <select 
+                                        className="proto-input focus:ring-2 focus:ring-accent"
+                                        value={form.role}
+                                        onChange={e => setForm({...form, role: e.target.value, password: ''})}
+                                        required
+                                    >
+                                        <option value="">-- Select Role --</option>
+                                        <option value="employee">Employee</option>
+                                        <option value="admin">Admin</option>
+                                    </select>
+                                </div>
+                                {form.role && (
+                                    <div className="form-group fade-in">
+                                        <label className="block text-white font-bold mb-2">Password</label>
+                                        <input 
+                                            type="password" 
+                                            placeholder="Enter your password"
+                                            className="proto-input focus:ring-2 focus:ring-accent"
+                                            value={form.password}
+                                            onChange={e => setForm({...form, password: e.target.value})}
+                                            required
+                                        />
+                                    </div>
+                                )}
+                                <button 
+                                    type="submit" 
+                                    disabled={loading}
+                                    className="w-auto min-w-[120px] bg-accent hover:bg-cyan-400 text-black font-bold py-3 px-6 rounded-lg transition-all mt-6 disabled:opacity-50"
+                                >
+                                    {loading ? 'Logging in...' : 'Login'}
+                                </button>
+                            </form>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        // --- Dashboard Components ---
+        
+        const Dashboard = ({ user }) => (
+            <div className="bg-cardbg p-6 rounded-2xl shadow-lg">
+                <h2 className="text-2xl font-bold mb-4">Welcome, {user.name}</h2>
+                <ul className="space-y-3 text-gray-300">
+                    <li className="flex items-center gap-2"><Icons.Activity/> <strong>Mark Attendance:</strong> Easily clock in and out.</li>
+                    <li className="flex items-center gap-2"><Icons.FollowUp/> <strong>Daily Visit Records:</strong> Log your client visits.</li>
+                    <li className="flex items-center gap-2"><Icons.Users/> <strong>Follow Ups:</strong> Manage daily follow-ups.</li>
+                </ul>
+            </div>
+        );
+
+        const DailyActivity = ({ user }) => {
+            const [logs, setLogs] = useState([]);
+            const [employees, setEmployees] = useState([]); // For filter
+            const [loading, setLoading] = useState(true);
+            const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+            const [filterEmp, setFilterEmp] = useState('');
+            const [search, setSearch] = useState('');
+            const [checkInSession, setCheckInSession] = useState(localStorage.getItem(`checkin_${user.user_id}`));
+            const [currentLoc, setCurrentLoc] = useState(null);
+            
+            const [showVisitModal, setShowVisitModal] = useState(false);
+            const [visitData, setVisitData] = useState({ client: '', purpose: '', location: '' });
+
+            useEffect(() => {
+                // Load employees list for filter if admin
+                if(user.role === 'admin') {
+                    // Pull from Local Storage so we can see all users (even those added offline)
+                    const localUsers = getLocalUsers().filter(u => u.role === 'employee');
+                    setEmployees(localUsers);
+                }
+            }, [user]);
+
+            const fetchLogs = async () => {
+                setLoading(true);
+                let query = supabase.from('daily_activity').select('*').order('created_at', { ascending: false });
+                
+                if (user.role === 'employee') query = query.eq('user_id', user.user_id);
+                if (filterEmp) query = query.eq('user_id', filterEmp);
+                
+                const { data, error } = await query;
+                if (error) {
+                    handleSupabaseError(error);
+                } else if (data) {
+                    let filtered = data.filter(l => new Date(l.created_at).toISOString().startsWith(filterDate));
+                    if (search) {
+                        const s = search.toLowerCase();
+                        filtered = filtered.filter(l => 
+                            l.user_id.toLowerCase().includes(s) || 
+                            (l.details && l.details.toLowerCase().includes(s))
+                        );
+                    }
+                    setLogs(filtered);
+                }
+                setLoading(false);
+            };
+
+            useEffect(() => { fetchLogs(); }, [filterDate, filterEmp, search]);
+
+            useEffect(() => {
+                navigator.geolocation.getCurrentPosition(
+                    pos => setCurrentLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy }),
+                    null,
+                    { enableHighAccuracy: true }
+                );
+            }, []);
+
+            const getLocation = () => new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(
+                    pos => {
+                        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy };
+                        setCurrentLoc(loc);
+                        resolve(loc);
+                    },
+                    err => reject(err),
+                    { enableHighAccuracy: true }
+                );
+            });
+
+            const handleCheckIn = async () => {
+                try {
+                    const loc = await getLocation();
+                    const payload = {
+                        user_id: user.user_id,
+                        type: 'checkin',
+                        created_at: new Date().toISOString(),
+                        latitude: loc.lat,
+                        longitude: loc.lng,
+                        location: `Lat: ${loc.lat.toFixed(6)}, Lng: ${loc.lng.toFixed(6)}`,
+                        description: 'Live GPS',
+                        details: 'Session Started' // Storing generic session detail
+                    };
+                    
+                    let { data, error } = await supabase.from('daily_activity').insert([payload]).select();
+                    
+                    // --- SELF-HEAL FIX: Foreign Key Violation (User missing in DB) ---
+                    if (error && error.code === '23503') {
+                        console.warn("User missing in DB, attempting self-heal...");
+                        await ensureSupabaseUser(user);
+                        const retry = await supabase.from('daily_activity').insert([payload]).select();
+                        data = retry.data;
+                        error = retry.error;
+                    }
+                    
+                    if (error) throw error;
+                    
+                    localStorage.setItem(`checkin_${user.user_id}`, data[0].id);
+                    setCheckInSession(data[0].id);
+                    
+                    setVisitData({ ...visitData, location: `Lat: ${loc.lat.toFixed(6)}, Lng: ${loc.lng.toFixed(6)}` });
+                    setShowVisitModal(true);
+                    fetchLogs();
+                } catch (err) {
+                    handleSupabaseError(err);
+                }
+            };
+
+            const handleCheckOut = async () => {
+                if (!checkInSession) return alert('Not checked in!');
+                try {
+                    const loc = await getLocation();
+                    const payload = {
+                        user_id: user.user_id,
+                        type: 'checkout',
+                        created_at: new Date().toISOString(),
+                        latitude: loc.lat,
+                        longitude: loc.lng,
+                        location: `Lat: ${loc.lat.toFixed(6)}, Lng: ${loc.lng.toFixed(6)}`,
+                        description: 'Live GPS',
+                        details: `Linked Checkin ID: ${checkInSession}`
+                    };
+
+                    let { error } = await supabase.from('daily_activity').insert([payload]);
+
+                    // --- SELF-HEAL FIX ---
+                    if (error && error.code === '23503') {
+                        await ensureSupabaseUser(user);
+                        const retry = await supabase.from('daily_activity').insert([payload]);
+                        error = retry.error;
+                    }
+
+                    if (error) throw error;
+                    
+                    localStorage.removeItem(`checkin_${user.user_id}`);
+                    setCheckInSession(null);
+                    alert('Checked Out Successfully');
+                    fetchLogs();
+                } catch (err) {
+                    handleSupabaseError(err);
+                }
+            };
+
+            const submitVisit = async () => {
+                try {
+                    const loc = currentLoc || await getLocation();
+                    const visitPayload = {
+                        user_id: user.user_id,
+                        type: 'visit',
+                        created_at: new Date().toISOString(),
+                        latitude: loc.lat,
+                        longitude: loc.lng,
+                        location: visitData.location,
+                        description: `${visitData.client}`,
+                        details: `${visitData.purpose}`
+                    };
+
+                    let { error } = await supabase.from('daily_activity').insert([visitPayload]);
+
+                    // --- SELF-HEAL FIX ---
+                    if (error && error.code === '23503') {
+                        await ensureSupabaseUser(user);
+                        const retry = await supabase.from('daily_activity').insert([visitPayload]);
+                        error = retry.error;
+                    }
+
+                    if (error) throw error;
+
+                    try {
+                        const fuPayload = {
+                            user_id: user.user_id,
+                            subject: `Visit: ${visitData.client}`,
+                            followup_date: new Date().toISOString(),
+                            notes: `Purpose: ${visitData.purpose}\nLocation: ${visitData.location}`
+                        };
+                        
+                        let fuRes = await supabase.from('followups').insert([fuPayload]);
+                        
+                        // Retry for Followup as well if needed
+                        if (fuRes.error && fuRes.error.code === '23503') {
+                             await ensureSupabaseUser(user);
+                             await supabase.from('followups').insert([fuPayload]);
+                        }
+
+                    } catch (fuError) {
+                        console.warn("Could not create auto-followup", fuError);
+                    }
+
+                    alert('Visit Logged');
+                    setShowVisitModal(false);
+                    fetchLogs();
+                } catch (err) {
+                    handleSupabaseError(err);
+                }
+            };
+
+            const getEmpName = (id) => {
+               const found = employees.find(e => e.user_id === id);
+               return found ? found.name : (id === user.user_id ? user.name : id);
+            };
+
+            return (
+                <div className="bg-cardbg p-6 rounded-2xl shadow-lg">
+                    <h2 className="text-2xl font-bold mb-6 text-white">📅 DAILY ACTIVITY</h2>
+                    <div className="flex flex-wrap gap-4 mb-6 items-end">
+                        <div className="flex-1 min-w-[150px]">
+                            <label className="block text-sm mb-1 font-semibold">Date:</label>
+                            <input type="date" value={filterDate} onChange={e=>setFilterDate(e.target.value)} className="proto-input"/>
+                        </div>
+                        {user.role === 'admin' && (
+                            <div className="flex-1 min-w-[150px]">
+                                <label className="block text-sm mb-1 font-semibold">Employee:</label>
+                                <select value={filterEmp} onChange={e=>setFilterEmp(e.target.value)} className="proto-input">
+                                    <option value="">All Employees</option>
+                                    {employees.map(e => <option key={e.user_id} value={e.user_id}>{e.name} ({e.user_id})</option>)}
+                                </select>
+                            </div>
+                        )}
+                        <div className="flex-1 min-w-[150px]">
+                            <label className="block text-sm mb-1 font-semibold">🔍 Search:</label>
+                            <input type="text" placeholder="Employee name / User ID" value={search} onChange={e=>setSearch(e.target.value)} className="proto-input"/>
+                        </div>
+                    </div>
+                    <div className="flex gap-3 mb-6 flex-wrap">
+                        <button onClick={handleCheckIn} className="bg-accent text-black font-bold py-2 px-4 rounded hover:bg-cyan-400">Check In</button>
+                        <button onClick={handleCheckOut} className="bg-accent text-black font-bold py-2 px-4 rounded hover:bg-cyan-400">Check Out</button>
+                        <button onClick={() => exportToCSV(logs, 'Daily_Activity')} className="bg-accent text-black font-bold py-2 px-4 rounded hover:bg-cyan-400">Export All</button>
+                    </div>
+                    <div className="mb-2 font-bold text-white">
+                        📍 Location Status: <span className={currentLoc ? "text-success" : "text-danger"}>{currentLoc ? "Active" : "Inactive"}</span>
+                    </div>
+                    <div className="flex flex-col md:flex-row gap-4 mb-8 p-4 border border-accent rounded-lg">
+                        <div className="flex-1 text-sm space-y-1">
+                            <p><strong>Address:</strong> {currentLoc ? "Location Found" : "Waiting for location..."}</p>
+                            <p><strong>Latitude:</strong> {currentLoc ? currentLoc.lat.toFixed(6) : "N/A"}</p>
+                            <p><strong>Longitude:</strong> {currentLoc ? currentLoc.lng.toFixed(6) : "N/A"}</p>
+                            <p><strong>Accuracy:</strong> {currentLoc ? currentLoc.acc.toFixed(2) : "N/A"} meters</p>
+                        </div>
+                        <div className="flex-1 h-48 border border-accent rounded">
+                            <MapComponent lat={currentLoc?.lat} lng={currentLoc?.lng} />
+                        </div>
+                    </div>
+                    <h3 className="text-center text-gray-400 font-semibold mb-2">──────────────────── Merged Log Table ────────────────────</h3>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm border-collapse">
+                            <thead>
+                                <tr>
+                                    <th>User ID</th>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Date & Time</th>
+                                    <th>Location</th>
+                                    <th>Latitude</th>
+                                    <th>Longitude</th>
+                                    <th>Map</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading ? <tr><td colSpan="9" className="text-center p-4">Loading...</td></tr> : logs.map(log => (
+                                    <tr key={log.id}>
+                                        <td>{log.user_id}</td>
+                                        <td>{getEmpName(log.user_id)}</td>
+                                        <td className="capitalize">{log.type}</td>
+                                        <td>{new Date(log.created_at).toLocaleString()}</td>
+                                        <td>{log.location || 'N/A'}</td>
+                                        <td>{log.latitude?.toFixed(6) || 'N/A'}</td>
+                                        <td>{log.longitude?.toFixed(6) || 'N/A'}</td>
+                                        <td>{(log.latitude && log.longitude) ? <a href={`https://www.openstreetmap.org/?mlat=${log.latitude}&mlon=${log.longitude}`} target="_blank" className="text-accent flex items-center gap-1"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Pushpin_red.svg/1200px-Pushpin_red.svg.png" width="15" /> View Map</a> : 'N/A'}</td>
+                                        <td>{log.description ? `${log.description} ${log.details || ''}` : log.details || 'N/A'}</td>
+                                    </tr>
+                                ))}
+                                {!loading && logs.length === 0 && <tr><td colSpan="9" className="text-center p-4">No daily activity records found</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Modal isOpen={showVisitModal} onClose={() => setShowVisitModal(false)} title="📝 Log Visit?">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block mb-1 text-sm font-bold">Client Name:</label>
+                                <input type="text" className="proto-input" placeholder="Client/Company Name" value={visitData.client} onChange={e=>setVisitData({...visitData, client: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-bold">Visit Purpose:</label>
+                                <textarea className="proto-input" rows="3" placeholder="Purpose / Notes" value={visitData.purpose} onChange={e=>setVisitData({...visitData, purpose: e.target.value})}></textarea>
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-bold">Visit Location:</label>
+                                <input type="text" className="proto-input" placeholder="Visit Location" value={visitData.location} readOnly />
+                            </div>
+                            <div className="flex gap-2 pt-2 justify-center">
+                                <button onClick={submitVisit} className="bg-accent text-black font-bold py-2 px-6 rounded">✔️ Submit Visit</button>
+                                <button onClick={() => setShowVisitModal(false)} className="bg-danger text-white font-bold py-2 px-6 rounded">Skip Visit</button>
+                            </div>
+                        </div>
+                    </Modal>
+                </div>
+            );
+        };
+
+        const FollowUps = ({ user }) => {
+            const [list, setList] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [newF, setNewF] = useState({ subject: '', datetime: '', note: '' });
+            const subjectRef = useRef(null);
+
+            const fetchF = async () => {
+                setLoading(true);
+                let query = supabase.from('followups').select('*').order('followup_date', { ascending: true });
+                if (user.role === 'employee') query = query.eq('user_id', user.user_id);
+                const { data, error } = await query;
+                if (error) {
+                    handleSupabaseError(error);
+                } else if (data) {
+                    setList(data);
+                }
+                setLoading(false);
+            };
+
+            useEffect(() => { fetchF(); }, []);
+
+            const handleAdd = async (e) => {
+                e.preventDefault();
+                const payload = {
+                    user_id: user.user_id,
+                    subject: newF.subject,
+                    followup_date: newF.datetime,
+                    notes: newF.note
+                };
+
+                let { error } = await supabase.from('followups').insert([payload]);
+                
+                // --- SELF-HEAL FIX ---
+                if (error && error.code === '23503') {
+                    await ensureSupabaseUser(user);
+                    const retry = await supabase.from('followups').insert([payload]);
+                    error = retry.error;
+                }
+
+                if (!error) {
+                    setNewF({ subject: '', datetime: '', note: '' });
+                    fetchF();
+                    alert('Follow-up added successfully!');
+                } else {
+                    handleSupabaseError(error);
+                }
+            };
+
+            const handleDelete = async (id) => {
+                if(!confirm('Delete this follow-up?')) return;
+                const { error } = await supabase.from('followups').delete().eq('id', id);
+                if (error) handleSupabaseError(error);
+                else fetchF();
+            };
+
+            return (
+                <div className="bg-cardbg p-6 rounded-2xl shadow-lg">
+                    <h2 className="text-2xl font-bold mb-4 text-white">Follow Ups</h2>
+                    <div className="flex gap-3 mb-4 flex-wrap">
+                        <button onClick={() => subjectRef.current.focus()} className="bg-accent text-black font-bold py-2 px-4 rounded hover:bg-cyan-400">Add Follow-Up</button>
+                        <button onClick={() => exportToCSV(list, 'FollowUps')} className="bg-accent text-black font-bold py-2 px-4 rounded hover:bg-cyan-400">Export to Excel</button>
+                    </div>
+                    <form onSubmit={handleAdd} className="space-y-3 mb-8">
+                        <input 
+                            ref={subjectRef}
+                            type="text" 
+                            placeholder="Subject / Client Name" 
+                            className="proto-input" 
+                            value={newF.subject} 
+                            onChange={e=>setNewF({...newF, subject: e.target.value})} 
+                            required 
+                        />
+                        <input 
+                            type="datetime-local" 
+                            className="proto-input" 
+                            value={newF.datetime} 
+                            onChange={e=>setNewF({...newF, datetime: e.target.value})} 
+                            required 
+                        />
+                        <textarea 
+                            placeholder="Reminder Note" 
+                            className="proto-input" 
+                            value={newF.note} 
+                            onChange={e=>setNewF({...newF, note: e.target.value})} 
+                            rows="2"
+                        ></textarea>
+                        <button type="submit" className="bg-accent text-black font-bold py-2 px-6 rounded hover:bg-cyan-400">Save Follow-Up</button>
+                    </form>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm border-collapse">
+                            <thead>
+                                <tr>
+                                    {user.role === 'admin' && <th>User ID</th>}
+                                    <th>Subject</th>
+                                    <th>Date & Time</th>
+                                    <th>Note</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading ? <tr><td colSpan="6" className="text-center p-4">Loading...</td></tr> : list.map(item => (
+                                    <tr key={item.id}>
+                                        {user.role === 'admin' && <td>{item.user_id}</td>}
+                                        <td>{item.subject}</td>
+                                        <td>{new Date(item.followup_date).toLocaleString()}</td>
+                                        <td>{item.notes}</td>
+                                        <td>
+                                            <button onClick={() => handleDelete(item.id)} className="bg-white text-black text-xs font-bold py-1 px-3 rounded hover:bg-gray-200">Delete</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {!loading && list.length === 0 && <tr><td colSpan="6" className="text-center p-4">No follow-up records found</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        const UserProfile = ({ user, onUpdate }) => {
+            const [formData, setFormData] = useState(user);
+            const [photoPreview, setPhotoPreview] = useState(user.photo_url || 'https://via.placeholder.com/100');
+
+            const handleFileChange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        setPhotoPreview(reader.result);
+                        setFormData({...formData, photo_url: reader.result});
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const handleSave = async () => {
+                // Dual update: 1. Supabase (Data Persistence) 2. Local Storage (Login)
+                
+                // 1. Update Supabase
+                const { error } = await supabase
+                    .from('users')
+                    .update({
+                        name: formData.name,
+                        mobile_no: formData.mobile_no,
+                        password: formData.password,
+                        photo_url: formData.photo_url
+                    })
+                    .eq('user_id', user.user_id);
+
+                if (error) {
+                    handleSupabaseError(error);
+                } else {
+                    // 2. Update Local Storage
+                    updateLocalUserInStorage(formData);
+                    
+                    alert('Profile Saved');
+                    onUpdate(formData); // Update local state
+                }
+            };
+
+            return (
+                <div className="bg-cardbg p-6 rounded-xl shadow-lg max-w-lg mx-auto">
+                    <h2 className="text-2xl font-bold mb-6 text-center">User Profile</h2>
+                    <div className="flex flex-col items-center mb-6">
+                        <img src={photoPreview} alt="Profile" className="w-24 h-24 rounded-full object-cover border-4 border-accent mb-2" />
+                        <label className="text-accent cursor-pointer text-sm hover:underline">
+                            Upload Photo
+                            <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                        </label>
+                    </div>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm mb-1">Name</label>
+                            <input type="text" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} className="proto-input" />
+                        </div>
+                        <div>
+                            <label className="block text-sm mb-1">Employee ID</label>
+                            <input type="text" value={formData.user_id} readOnly className="w-full bg-gray-700 p-2 rounded text-gray-400 cursor-not-allowed" />
+                        </div>
+                        <div>
+                            <label className="block text-sm mb-1">Mobile</label>
+                            <input type="text" value={formData.mobile_no} onChange={e=>setFormData({...formData, mobile_no: e.target.value})} className="proto-input" />
+                        </div>
+                        <div>
+                            <label className="block text-sm mb-1">Password</label>
+                            <input type="password" value={formData.password} onChange={e=>setFormData({...formData, password: e.target.value})} className="proto-input" />
+                        </div>
+                        <button onClick={handleSave} className="w-full bg-success text-white font-bold py-2 rounded mt-4">Save Profile</button>
+                    </div>
+                </div>
+            );
+        };
+
+        const AdminManagement = ({ type }) => {
+            const [users, setUsers] = useState([]);
+            const [isModalOpen, setModalOpen] = useState(false);
+            const [newUser, setNewUser] = useState({ id: '', name: '', mobile: '', email: '', password: '' });
+
+            const fetchUsers = () => {
+                // Fetch from Local Storage for consistency with Login
+                const role = type === 'admin' ? 'admin' : 'employee';
+                const localUsers = getLocalUsers().filter(u => u.role === role);
+                setUsers(localUsers);
+            };
+
+            useEffect(() => {
+                fetchUsers();
+            }, [type, isModalOpen]);
+
+            const handleDelete = async (id) => {
+                if (confirm(`Delete ${id} and all their data?`)) {
+                    // 1. Delete from Supabase (try/catch in case of FK issues or offline)
+                    try {
+                        const { error } = await supabase.from('users').delete().eq('user_id', id);
+                        if (error) console.warn("Supabase delete warning:", error.message);
+                    } catch (e) { console.warn("Delete error", e); }
+                    
+                    // 2. Delete from Local Storage (Critical for Login)
+                    removeLocalUserFromStorage(id);
+                    fetchUsers();
+                }
+            };
+
+            const handleAdd = async (e) => {
+                e.preventDefault();
+                const prefix = type === 'admin' ? 'ADM' : 'SCS';
+                
+                let userId = newUser.id.trim();
+                if (!userId) return alert('ID is required');
+                if (!userId.toUpperCase().startsWith(prefix + '-')) {
+                    return alert(`ID must start with ${prefix}-`);
+                }
+
+                const newUserObj = {
+                    user_id: userId.toUpperCase(),
+                    name: newUser.name,
+                    mobile_no: newUser.mobile,
+                    email: newUser.email,
+                    password: newUser.password,
+                    role: type === 'admin' ? 'admin' : 'employee'
+                };
+
+                // 1. Add to Supabase
+                const { error } = await supabase.from('users').insert([newUserObj]);
+
+                if (error) return handleSupabaseError(error);
+                
+                // 2. Add to Local Storage
+                addLocalUserToStorage(newUserObj);
+                
+                setModalOpen(false);
+                setNewUser({ id: '', name: '', mobile: '', email: '', password: '' });
+                alert('User added successfully');
+                fetchUsers();
+            };
+
+            const openModal = () => {
+                setNewUser({ id: '', name: '', mobile: '', email: '', password: '' });
+                setModalOpen(true);
+            };
+
+            const labelId = type === 'admin' ? 'Admin Username (ADM-YourName)' : 'Employee ID (SCS-XXXXXX)';
+            const placeholderId = type === 'admin' ? 'ADM-JohnDoe' : 'SCS-12345';
+
+            return (
+                <div className="bg-cardbg p-4 rounded-xl shadow-lg">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-2xl font-bold">{type === 'admin' ? 'Admin Profile Details' : 'Employee Details'}</h2>
+                        <div className="flex gap-2">
+                            <button onClick={openModal} className="bg-accent text-black font-bold py-2 px-4 rounded">Add {type === 'admin' ? 'Admin' : 'Employee'}</button>
+                            <button onClick={() => exportToCSV(users, type + '_list')} className="bg-green-600 text-white font-bold py-2 px-4 rounded">Export</button>
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                            <thead>
+                                <tr>
+                                    <th>{type === 'admin' ? 'Employee ID' : 'Employee ID'}</th>
+                                    <th>Name</th>
+                                    <th>Mobile No</th>
+                                    <th>Email</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {users.map(u => (
+                                    <tr key={u.user_id}>
+                                        <td>{u.user_id}</td>
+                                        <td>{u.name}</td>
+                                        <td>{u.mobile_no}</td>
+                                        <td>{u.email || 'N/A'}</td>
+                                        <td>
+                                            <button onClick={() => handleDelete(u.user_id)} className="text-red-400 hover:text-red-200">Delete</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <Modal isOpen={isModalOpen} onClose={() => setModalOpen(false)} title={`Add New ${type === 'admin' ? 'Admin' : 'Employee'}`}>
+                        <form onSubmit={handleAdd} className="space-y-4">
+                            <div>
+                                <label className="block mb-1 text-sm font-bold text-white">{labelId}</label>
+                                <input 
+                                    type="text" 
+                                    placeholder={placeholderId} 
+                                    className="proto-input" 
+                                    value={newUser.id} 
+                                    onChange={e=>setNewUser({...newUser, id: e.target.value})} 
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-bold text-white">Full Name</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="John Doe" 
+                                    className="proto-input" 
+                                    value={newUser.name} 
+                                    onChange={e=>setNewUser({...newUser, name: e.target.value})} 
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-bold text-white">Mobile No</label>
+                                <input 
+                                    type="tel" 
+                                    placeholder="9876543210" 
+                                    className="proto-input" 
+                                    value={newUser.mobile} 
+                                    onChange={e=>setNewUser({...newUser, mobile: e.target.value})} 
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-bold text-white">Email</label>
+                                <input 
+                                    type="email" 
+                                    placeholder="john@example.com" 
+                                    className="proto-input" 
+                                    value={newUser.email} 
+                                    onChange={e=>setNewUser({...newUser, email: e.target.value})} 
+                                />
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-bold text-white">Password</label>
+                                <input 
+                                    type="password" 
+                                    placeholder="Set password" 
+                                    className="proto-input" 
+                                    value={newUser.password} 
+                                    onChange={e=>setNewUser({...newUser, password: e.target.value})} 
+                                    required
+                                />
+                            </div>
+                            <button type="submit" className="w-full bg-accent text-black font-bold py-3 rounded mt-4">
+                                Save {type === 'admin' ? 'Admin' : 'Employee'}
+                            </button>
+                        </form>
+                    </Modal>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [section, setSection] = useState('dashboard');
+            const [sidebarOpen, setSidebarOpen] = useState(false);
+            const [dbConnected, setDbConnected] = useState(null);
+
+            useEffect(() => {
+                const saved = localStorage.getItem('current_user_session');
+                let currentUser = null;
+                if (saved) {
+                    currentUser = JSON.parse(saved);
+                    setUser(currentUser);
+                }
+                
+                // Ensure Local Storage is seeded for Login
+                getLocalUsers();
+
+                // Connection & Seed Check
+                const checkDb = async () => {
+                    // Check connection
+                    const { count, error } = await supabase.from('daily_activity').select('*', { count: 'exact', head: true });
+                    if (error && (error.code === 'PGRST205' || error.code === '42501')) {
+                        setDbConnected(false);
+                    } else {
+                        setDbConnected(true);
+                        
+                        // ROBUST SEEDING: Ensure all initial users exist in DB to prevent Foreign Key errors
+                        // We use upsert with ignoreDuplicates to avoid overwriting recent changes, 
+                        // but ensure the row exists.
+                        const allUsers = [...INITIAL_ADMINS, ...INITIAL_EMPLOYEES];
+                        await supabase.from('users').upsert(allUsers, { onConflict: 'user_id', ignoreDuplicates: true });
+                        
+                        // Force sync current logged-in user to avoid FK error if not in initial list
+                        if (currentUser) {
+                           await ensureSupabaseUser(currentUser);
+                        }
+                    }
+                };
+                checkDb();
+            }, []);
+
+            const handleLogin = (userData) => {
+                setUser(userData);
+                localStorage.setItem('current_user_session', JSON.stringify(userData));
+            };
+
+            const handleLogout = () => {
+                setUser(null);
+                localStorage.removeItem('current_user_session');
+                setSection('dashboard');
+            };
+
+            if (!user) return <LoginScreen onLogin={handleLogin} />;
+
+            return (
+                <div className="flex h-screen overflow-hidden">
+                    <button onClick={() => setSidebarOpen(!sidebarOpen)} className="md:hidden fixed top-4 right-4 z-50 p-2 bg-cardbg rounded-md text-accent">
+                        {sidebarOpen ? <Icons.Close /> : <Icons.Menu />}
+                    </button>
+
+                    <aside className={`
+                        fixed inset-y-0 left-0 z-40 w-64 bg-primary transform transition-transform duration-300 ease-in-out
+                        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 flex flex-col
+                    `}>
+                        <div className="p-6 flex flex-col items-center border-b border-gray-700">
+                            <h1 className="text-2xl font-bold text-accent mb-4">🚀 Tracker</h1>
+                            <img src={user.photo_url || 'https://via.placeholder.com/80'} alt="Profile" className="w-20 h-20 rounded-full object-cover border-2 border-accent mb-2" />
+                            <p className="font-semibold text-white text-center">{user.name}</p>
+                            <p className="text-xs text-gray-400">{user.user_id}</p>
+                        </div>
+                        
+                        <div className="px-6 py-2">
+                            <div className={`text-xs font-bold px-2 py-1 rounded text-center ${dbConnected ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200 animate-pulse'}`}>
+                                DB Status: {dbConnected === null ? 'Checking...' : (dbConnected ? 'Connected' : 'Error / RLS Blocked')}
+                            </div>
+                        </div>
+
+                        <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+                            <button onClick={() => { setSection('dashboard'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${section === 'dashboard' ? 'bg-accent text-black font-bold' : 'hover:bg-cardbg text-gray-300'}`}>
+                                <Icons.Dashboard /> Dashboard
+                            </button>
+                            <button onClick={() => { setSection('activity'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${section === 'activity' ? 'bg-accent text-black font-bold' : 'hover:bg-cardbg text-gray-300'}`}>
+                                <Icons.Activity /> Daily Activity
+                            </button>
+                            <button onClick={() => { setSection('followups'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${section === 'followups' ? 'bg-accent text-black font-bold' : 'hover:bg-cardbg text-gray-300'}`}>
+                                <Icons.FollowUp /> Follow Ups
+                            </button>
+                            <button onClick={() => { setSection('profile'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${section === 'profile' ? 'bg-accent text-black font-bold' : 'hover:bg-cardbg text-gray-300'}`}>
+                                <Icons.Profile /> User Profile
+                            </button>
+                            
+                            {user.role === 'admin' && (
+                                <>
+                                    <div className="border-t border-gray-700 my-2 pt-2">
+                                        <p className="text-xs text-gray-500 uppercase px-2 mb-1">Admin Zone</p>
+                                        <button onClick={() => { setSection('manage-emp'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${section === 'manage-emp' ? 'bg-accent text-black font-bold' : 'hover:bg-cardbg text-gray-300'}`}>
+                                            <Icons.Users /> Manage Employees
+                                        </button>
+                                        <button onClick={() => { setSection('manage-admin'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${section === 'manage-admin' ? 'bg-accent text-black font-bold' : 'hover:bg-cardbg text-gray-300'}`}>
+                                            <Icons.Admin /> Manage Admins
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </nav>
+
+                        <div className="p-4 border-t border-gray-700">
+                            <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors">
+                                <Icons.Logout /> Logout
+                            </button>
+                        </div>
+                    </aside>
+
+                    <main className="flex-1 overflow-y-auto bg-main-gradient p-4 md:p-8">
+                        {section === 'dashboard' && <Dashboard user={user} />}
+                        {section === 'activity' && <DailyActivity user={user} />}
+                        {section === 'followups' && <FollowUps user={user} />}
+                        {section === 'profile' && <UserProfile user={user} onUpdate={handleLogin} />}
+                        {section === 'manage-emp' && user.role === 'admin' && <AdminManagement type="employee" />}
+                        {section === 'manage-admin' && user.role === 'admin' && <AdminManagement type="admin" />}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
