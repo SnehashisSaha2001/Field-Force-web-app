@@ -636,7 +636,7 @@
                         created_at: new Date().toISOString(),
                         latitude: loc.lat,
                         longitude: loc.lng,
-                        location: "Live Location",
+                        location: await getAddressFromCoords(loc.lat, loc.lng),
                         description: 'Live GPS',
                         details: 'Session Started' // Storing generic session detail
                     };
@@ -675,7 +675,7 @@
                         created_at: new Date().toISOString(),
                         latitude: loc.lat,
                         longitude: loc.lng,
-                        location: "Live Location", 
+                        location: await getAddressFromCoords(loc.lat, loc.lng), 
                         description: 'Live GPS',
                         details: `Linked Checkin ID: ${checkInSession}`
                     };
@@ -709,7 +709,7 @@
                         created_at: new Date().toISOString(),
                         latitude: loc.lat,
                         longitude: loc.lng,
-                        location: "Client Visit Location",
+                        location: await getAddressFromCoords(loc.lat, loc.lng),
                         description: `${visitData.client}`,
                         details: `${visitData.purpose}`
                     };
