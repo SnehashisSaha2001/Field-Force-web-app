@@ -587,7 +587,7 @@
                         created_at: new Date().toISOString(),
                         latitude: loc.lat,
                         longitude: loc.lng,
-                        location: `Lat: ${loc.lat.toFixed(6)}, Lng: ${loc.lng.toFixed(6)}`,
+                        location: "Live Location",
                         description: 'Live GPS',
                         details: 'Session Started' // Storing generic session detail
                     };
@@ -626,7 +626,7 @@
                         created_at: new Date().toISOString(),
                         latitude: loc.lat,
                         longitude: loc.lng,
-                        location: `Lat: ${loc.lat.toFixed(6)}, Lng: ${loc.lng.toFixed(6)}`,
+                        location: "Live Location", 
                         description: 'Live GPS',
                         details: `Linked Checkin ID: ${checkInSession}`
                     };
@@ -660,7 +660,7 @@
                         created_at: new Date().toISOString(),
                         latitude: loc.lat,
                         longitude: loc.lng,
-                        location: visitData.location,
+                        location: "Client Visit Location",
                         description: `${visitData.client}`,
                         details: `${visitData.purpose}`
                     };
