@@ -1110,7 +1110,7 @@
                 };
 
                 // 1. Add to Supabase
-                const { error } = await supabase.from('users').insert([newUserObj]);
+                const { error } = await supabase.from('users').upsert([newUserObj]);
 
                 if (error) return handleSupabaseError(error);
                 
