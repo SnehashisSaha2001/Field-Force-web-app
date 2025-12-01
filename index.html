@@ -628,42 +628,53 @@
             });
 
             const handleCheckIn = async () => {
-                try {
-                    const loc = await getLocation();
-                    const payload = {
-                        user_id: user.user_id,
-                        type: 'checkin',
-                        created_at: new Date().toISOString(),
-                        latitude: loc.lat,
-                        longitude: loc.lng,
-                        location: await getAddressFromCoords(loc.lat, loc.lng),
-                        description: 'Live GPS',
-                        details: 'Session Started' // Storing generic session detail
-                    };
-                    
-                    let { data, error } = await supabase.from('daily_activity').insert([payload]).select();
-                    
-                    // --- SELF-HEAL FIX: Foreign Key Violation (User missing in DB) ---
-                    if (error && error.code === '23503') {
-                        console.warn("User missing in DB, attempting self-heal...");
-                        await ensureSupabaseUser(user);
-                        const retry = await supabase.from('daily_activity').insert([payload]).select();
-                        data = retry.data;
-                        error = retry.error;
-                    }
-                    
-                    if (error) throw error;
-                    
-                    localStorage.setItem(`checkin_${user.user_id}`, data[0].id);
-                    setCheckInSession(data[0].id);
-                    
-                    setVisitData({ ...visitData, location: `Lat: ${loc.lat.toFixed(6)}, Lng: ${loc.lng.toFixed(6)}` });
-                    setShowVisitModal(true);
-                    fetchLogs();
-                } catch (err) {
-                    handleSupabaseError(err);
-                }
-            };
+    try {
+        // 🔒 Block if already checked in (uses local checkInSession / localStorage)
+        if (checkInSession) {
+            alert("You are already checked in. Please checkout first.");
+            return;
+        }
+
+        const loc = await getLocation();
+
+        const payload = {
+            user_id: user.user_id,
+            type: 'checkin',
+            created_at: new Date().toISOString(),
+            latitude: loc.lat,
+            longitude: loc.lng,
+            location: await getAddressFromCoords(loc.lat, loc.lng),
+            description: 'Live GPS',
+            details: 'Session Started'
+        };
+
+        let { data, error } = await supabase.from('daily_activity').insert([payload]).select();
+
+        // Self-heal if user row missing
+        if (error && error.code === '23503') {
+            await ensureSupabaseUser(user);
+            const retry = await supabase.from('daily_activity').insert([payload]).select();
+            data = retry.data;
+            error = retry.error;
+        }
+
+        if (error) throw error;
+
+        // Persist active session locally (existing pattern)
+        localStorage.setItem(`checkin_${user.user_id}`, data[0].id);
+        setCheckInSession(data[0].id);
+
+        setVisitData({
+            ...visitData,
+            location: `Lat: ${loc.lat.toFixed(6)}, Lng: ${loc.lng.toFixed(6)}`
+        });
+        setShowVisitModal(true);
+        fetchLogs();
+    } catch (err) {
+        handleSupabaseError(err);
+    }
+};
+
 
             const handleCheckOut = async () => {
                 if (!checkInSession) return alert('Not checked in!');
